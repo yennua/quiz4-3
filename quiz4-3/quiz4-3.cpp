@@ -44,7 +44,7 @@ void checkSwap(ScenePtr back) {
 		now = blank;
 		blank = temp;
 
-		cout << blank << "<-" << now << endl;
+		//cout << blank << "<-" << now << endl;
 
 		if(game==1)	cnt++; //게임 진행중이면 횟수 증가
 	}
@@ -52,17 +52,19 @@ void checkSwap(ScenePtr back) {
 
 void randMove(ScenePtr back) {
 	int near[4] = { -3, -1, 1, 3 };
+	//int randL[4] = {};
 	srand((unsigned int)time(NULL));
 
 	do {
 		now = blank + near[rand() % 4];
 	} while (now < 1 || now > 9);
 	checkSwap(back);
-
+	/*
 	clock_t delay = 100;
 	clock_t start = clock();
 	while (clock() - start < delay);
-
+	*/
+	if (cnt == 1 && clearCheck()) cnt = 500;
 	//if (i == 299 && clearCheck()) i = 0;
 }
 
@@ -72,11 +74,6 @@ int main()
 	setGameOption(GameOption::GAME_OPTION_MESSAGE_BOX_BUTTON, false);
 
 	auto back_G = Scene::create("라이언 슬라이딩 퍼즐", "Images/배경.png");
-
-	auto origin = Object::create("Images/원본.png", back_G, 0, 0);
-	auto startButton = Object::create("Images/start.png", back_G, 980, 40);
-	auto restartButton = Object::create("Images/restart.png", back_G, 980, 40);
-	restartButton->hide();
 
 	auto timer = Timer::create(0.f);
 	int challnge = 1;
@@ -91,49 +88,61 @@ int main()
 			}
 			else {
 				game = 1;
+				cnt = 1;
+				timer->stop();
+				timer->set(40.f);
+				timer->start();
 			}
 		}
 		return true;
 		});
 
+	char path[20];
+	for (int i = 0; i < 9; i++) {
+		sprintf_s(path, "Images/%d.png", i + 1);
+		//printf("%s", path);
+		puzzle[i] = Object::create(path, back_G, puzzleXY[i][0], puzzleXY[i][1]);
+		origin_p[i] = puzzle[i];
+
+		puzzle[i]->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
+			now = puzzle_i(object);
+			checkSwap(back_G);
+
+			if (clearCheck()) {
+				timer->stop();
+				char clear[100];
+				if (challnge == 1) {
+					sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Success!", cnt);
+				}
+				else sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Fail...", cnt);
+				showMessage(clear);
+			}
+
+			return true;
+			});
+	}
+
+
+	auto origin = Object::create("Images/원본.png", back_G, 0, 0);
+
+	auto startButton = Object::create("Images/start.png", back_G, 980, 40);
+	auto restartButton = Object::create("Images/restart.png", back_G, 980, 40);
+
+	restartButton->hide();
+
 	startButton->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
 		//게임 시작
-		char path[20];
-		for (int i = 0; i < 9; i++) {
-			sprintf_s(path, "Images/%d.png", i + 1);
-			//printf("%s", path);
-			puzzle[i] = Object::create(path, back_G, puzzleXY[i][0], puzzleXY[i][1]);
-			origin_p[i] = puzzle[i];
-
-			puzzle[i]->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
-				now = puzzle_i(object);
-				checkSwap(back_G);
-
-				if (clearCheck()) {
-					timer->stop();
-					puzzle[blank - 1]->show();
-					char clear[100];
-					if (challnge == 1) {
-						sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Success!", cnt);
-					}
-					else sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Fail...", cnt);
-					showMessage(clear);
-				}
-
-				return true;
-				});
-		}
-
 		origin->hide();
 		puzzle[blank-1]->hide();
 
 		showTimer(timer);
-		
+
+		cnt = 1000;
+
 		startButton->hide();
 		restartButton->show();
 		timer->start();
 
-		cnt = 300;
 
 		return true;
 		});
@@ -142,11 +151,15 @@ int main()
 	restartButton->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
 		//재시작
 		blank = 3;
+
+		for (int i = 0; i < 9; i++) 	puzzle[i] = origin_p[i];
 		restartButton->hide();
 		startButton->show();
+		timer->stop();
+		game = 0;
+		timer->set(0.f);
 		return true;
 		});
-
 
 	startGame(back_G);
 }
