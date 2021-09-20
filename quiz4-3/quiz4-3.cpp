@@ -44,7 +44,7 @@ void checkSwap(ScenePtr back) {
 		now = blank;
 		blank = temp;
 
-		//cout << blank << "<-" << now << endl;
+		cout << blank << "<-" << now << endl;
 
 		if(game==1)	cnt++; //게임 진행중이면 횟수 증가
 	}
@@ -52,12 +52,14 @@ void checkSwap(ScenePtr back) {
 
 void randMove(ScenePtr back) {
 	int near[4] = { -3, -1, 1, 3 };
-	//int randL[4] = {};
+	int noww;
 	srand((unsigned int)time(NULL));
+	cout << cnt << endl;
 
 	do {
-		now = blank + near[rand() % 4];
-	} while (now < 1 || now > 9);
+		noww = blank + near[rand() % 4];
+	} while (noww < 1 || noww > 9 || now==noww);
+	now = noww;
 	checkSwap(back);
 	/*
 	clock_t delay = 100;
@@ -65,7 +67,6 @@ void randMove(ScenePtr back) {
 	while (clock() - start < delay);
 	*/
 	if (cnt == 1 && clearCheck()) cnt = 500;
-	//if (i == 299 && clearCheck()) i = 0;
 }
 
 int main()
@@ -76,6 +77,17 @@ int main()
 	auto back_G = Scene::create("라이언 슬라이딩 퍼즐", "Images/배경.png");
 
 	auto timer = Timer::create(0.f);
+
+	auto soundT = Timer::create(21.f);
+	SoundPtr sound = Sound::create("Sounds/폭탄소리.mp3");
+	SoundPtr sound2 = Sound::create("Sounds/시작.mp3");
+
+	soundT->setOnTimerCallback([&](TimerPtr timer)->bool {
+		if (game == 1) sound->play(false);
+		timer->stop();
+		return true;
+		});
+
 	int challnge = 1;
 	timer->setOnTimerCallback([&](TimerPtr timer)->bool {
 		if (game==1) challnge = 0;
@@ -92,10 +104,14 @@ int main()
 				timer->stop();
 				timer->set(40.f);
 				timer->start();
+				soundT->set(21.f);
+				sound2->play(false);
+				soundT->start();
 			}
 		}
 		return true;
 		});
+
 
 	char path[20];
 	for (int i = 0; i < 9; i++) {
@@ -137,7 +153,7 @@ int main()
 
 		showTimer(timer);
 
-		cnt = 1000;
+		cnt = 500;
 
 		startButton->hide();
 		restartButton->show();
