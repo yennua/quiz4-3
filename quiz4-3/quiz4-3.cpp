@@ -1,188 +1,152 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-
-
-#include <bangtal>
+﻿#include <bangtal>
 using namespace bangtal;
 
-SceneID scene;
-ObjectID start;
-ObjectID game_board[9], original_board[16];
-int blank = 8;
+#include <iostream>
+using namespace std;
 
-bool game = false;
+#include <cstdlib>
+#include <ctime>
 
-TimerID timer;
-float timerValue = 0.01f;
-int mixCount;
+int puzzleXY[10][2] = { { 320, 469 }, { 534, 469 }, { 748, 469 }, { 320, 255 }, { 534, 255 }, { 748, 255 }, { 320, 41 }, { 534, 41 }, { 748, 41 },};
+int now, cnt;
+int blank = 3;
+ObjectPtr puzzle[10];
+ObjectPtr origin_p[10]; //원본
+int game = 0; //초기화 작업 중일때와 게임 진행 중일때를 구분하기 위한 변수
 
-
-int indexTOX(int i)
-{
-	return 400 + 200 * (i % 3);
-}
-
-int indexTOY(int i)
-{
-	return 459 - 200 * (i / 3);
-}
-
-int game_index(ObjectID object)
-{
+int puzzle_i(ObjectPtr object) {
 	for (int i = 0; i < 9; i++) {
-		if (game_board[i] = object) return i;
+		if (puzzle[i] == object) return i+1;
 	}
 	return -1;
 }
 
-void  game_move(int i)
-{
-	ObjectID object = game_board[i];
-	game_board[i] = game_board[blank];
-	locateObject(game_board[i], scene, indexTOX(i), indexTOY(i));
-	game_board[blank] = object;
-	locateObject(game_board[blank], scene, indexTOX(blank), indexTOY(blank));
-
-
-	blank = i;
-}
-
-void game_print()
-{
-	for (int i = 0; i < 9; i++) {
-		printf("%d", game_board[i]);
-	}
-	printf("\n");
-}
-
-bool possible_move(int i)
-{
-	if (i % 3 > 0 && blank == i - 1)return true;
-	if (i % 3 < 2 && blank == i + 1)return true;
-	if (i / 3 > 0 && blank == i - 3)return true;
-	if (i / 3 > 2 && blank == i + 3)return true;
-
-	return false;
-}
-
-int random_move()
-{
-	int i = -1;
-
-	while (i == -1) {
-		switch (rand() % 3) {
-		case 0:if (blank % 3 > 0) i = blank - 1;
-			break;
-		case 1:if (blank % 3 < 2) i = blank + 1;
-			break;
-		case 2:if (blank / 3 > 0) i = blank - 3;
-			break;
-		case 3:if (blank / 3 < 2) i = blank + 3;
-			break;
-		}
-	}
-
-
-	return i;
-}
-
-bool game_end()
-{
+bool clearCheck() {
 	for (int i = 0; i < 9;i++) {
-		if (game_board[i] != original_board[i]) return false;
+		if (puzzle[i] != origin_p[i]) return false;
 	}
 	return true;
 }
 
-void game_start()
-{
-	blank = 9;
-	hideObject(game_board[blank]);
 
-	mixCount = 3;
-
-	setTimer(timer, timerValue);
-	startTimer(timer);
-}
-
-void mouseCallback(ObjectID object, int x, int y, MouseAction action)
-{
-	if (game) {
-		int i = game_index(object);
-		if (possible_move(i)) {
-			game_move(i);
-
-			if (game_end()) {
-				game = false;
-				showObject(start);
-				showObject(game_board[blank]);
-
-				showMessage("Completed!!!");
-			}
-		}
-		game_print();
+void checkSwap(ScenePtr back) {
+	int temp;
+	if ((now != blank - 3 && now != blank - 1 && now != blank + 1 && now != blank + 3) || (now % 3 == 0 && blank == now + 1) || (now % 3 == 1 && blank == now - 1)) {
 	}
-	else {
-		if (object == start) {
-			game_start();
-		}
+	else{
+		ObjectPtr tempObj = puzzle[now-1];
+		puzzle[now - 1] = puzzle[blank - 1];
+		puzzle[now - 1]->locate(back, puzzleXY[now - 1][0], puzzleXY[now - 1][1]);
+		puzzle[blank - 1] = tempObj;
+		puzzle[blank - 1]->locate(back, puzzleXY[blank - 1][0], puzzleXY[blank - 1][1]);
+
+		temp = now;
+		now = blank;
+		blank = temp;
+
+		cout << blank << "<-" << now << endl;
+
+		if(game==1)	cnt++; //게임 진행중이면 횟수 증가
 	}
 }
 
-ObjectID createObject(const char* image, SceneID scene, int x, int y, bool shown = true)
-{
-	ObjectID object = createObject(image);
-	locateObject(object, scene, x, y);
-	if (shown) showObject(object);
+void randMove(ScenePtr back) {
+	int near[4] = { -3, -1, 1, 3 };
+	srand((unsigned int)time(NULL));
 
-	return object;
+	do {
+		now = blank + near[rand() % 4];
+	} while (now < 1 || now > 9);
+	checkSwap(back);
 
-}
+	clock_t delay = 100;
+	clock_t start = clock();
+	while (clock() - start < delay);
 
-void timerCallback(TimerID timer)
-{
-	game_move(random_move());
-	mixCount--;
-	if (mixCount > 0) {
-		setTimer(timer, timerValue);
-		startTimer(timer);
-	}
-	else {
-		game = true;
-		hideObject(start);
-	}
-
-}
-
-SceneID game_init()
-{
-	scene = createScene("퍼즐", "image/scr.png");
-
-	char path[50];
-	for (int i = 0; i < 9; i++) {
-		sprintf(path, "image/%d.png", i + 1);
-		game_board[i] = createObject(path, scene, indexTOX(i), indexTOY(i));
-		original_board[i] = game_board[i];
-
-	}
-	start = createObject("image/start.png", scene, 600, 20);
-
-	timer = createTimer(timerValue);
-
-
-	return scene;
+	//if (i == 299 && clearCheck()) i = 0;
 }
 
 int main()
 {
-	srand(time(NULL));
-	setGameOption(GameOption::GAME_OPTION_MESSAGE_BOX_BUTTON, false);
 	setGameOption(GameOption::GAME_OPTION_INVENTORY_BUTTON, false);
-	setGameOption(GameOption::GAME_OPTION_ROOM_TITLE, false);
-	setMouseCallback(mouseCallback);
-	setTimerCallback(timerCallback);
-	startGame(game_init());
+	setGameOption(GameOption::GAME_OPTION_MESSAGE_BOX_BUTTON, false);
+
+	auto back_G = Scene::create("라이언 슬라이딩 퍼즐", "Images/배경.png");
+
+	auto origin = Object::create("Images/원본.png", back_G, 0, 0);
+	auto startButton = Object::create("Images/start.png", back_G, 980, 40);
+	auto restartButton = Object::create("Images/restart.png", back_G, 980, 40);
+	restartButton->hide();
+
+	auto timer = Timer::create(0.f);
+	int challnge = 1;
+	timer->setOnTimerCallback([&](TimerPtr timer)->bool {
+		if (game==1) challnge = 0;
+		else {
+			randMove(back_G);
+			cnt--;
+			if (cnt > 0) {
+				timer->set(0.f);
+				timer->start();
+			}
+			else {
+				game = 1;
+			}
+		}
+		return true;
+		});
+
+	startButton->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
+		//게임 시작
+		char path[20];
+		for (int i = 0; i < 9; i++) {
+			sprintf_s(path, "Images/%d.png", i + 1);
+			//printf("%s", path);
+			puzzle[i] = Object::create(path, back_G, puzzleXY[i][0], puzzleXY[i][1]);
+			origin_p[i] = puzzle[i];
+
+			puzzle[i]->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
+				now = puzzle_i(object);
+				checkSwap(back_G);
+
+				if (clearCheck()) {
+					timer->stop();
+					puzzle[blank - 1]->show();
+					char clear[100];
+					if (challnge == 1) {
+						sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Success!", cnt);
+					}
+					else sprintf_s(clear, "Clear! 슬라이드 횟수: %d 챌린지: Fail...", cnt);
+					showMessage(clear);
+				}
+
+				return true;
+				});
+		}
+
+		origin->hide();
+		puzzle[blank-1]->hide();
+
+		showTimer(timer);
+		
+		startButton->hide();
+		restartButton->show();
+		timer->start();
+
+		cnt = 300;
+
+		return true;
+		});
+
+
+	restartButton->setOnMouseCallback([&](ObjectPtr object, int x, int y, MouseAction action)->bool {
+		//재시작
+		blank = 3;
+		restartButton->hide();
+		startButton->show();
+		return true;
+		});
+
+
+	startGame(back_G);
 }
